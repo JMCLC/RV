@@ -1,20 +1,23 @@
 using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class VRShoot : MonoBehaviour
 {
     public SimpleShoot simpleShoot; // Reference to SimpleShoot script
     private AudioSource audioSource; // AudioSource for shooting sound
 
-    private UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable;
+    private XRGrabInteractable grabInteractable;
     private bool isHeld = false;
     private bool canShoot = true; // Flag to control shooting
+    private HideControllerWhenHolding hideControllerScript; // Reference to HideControllerWhenHolding script
 
     void Awake()
     {
-        grabInteractable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+        grabInteractable = GetComponent<XRGrabInteractable>();
         audioSource = GetComponent<AudioSource>();
+        hideControllerScript = GetComponent<HideControllerWhenHolding>();
 
         grabInteractable.selectEntered.AddListener(OnGrab);
         grabInteractable.selectExited.AddListener(OnRelease);
@@ -39,31 +42,29 @@ public class VRShoot : MonoBehaviour
 
     void Update()
     {
-        if (isHeld)
+        if (isHeld && hideControllerScript != null)
         {
-            // Get the right or left controller device
-            InputDevice rightController = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
-            InputDevice leftController = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+            string holdingController = hideControllerScript.GetHoldingController();
 
-            bool isTriggerPressed = false;
-            bool isTriggerPressedRight = rightController.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggerPressed) && isTriggerPressed;
-            bool isTriggerPressedLeft = leftController.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggerPressed) && isTriggerPressed;
+            // Get the corresponding controller device based on the holding controller
+            InputDevice controllerDevice = holdingController == "Right" ? InputDevices.GetDeviceAtXRNode(XRNode.RightHand) :
+                                          holdingController == "Left" ? InputDevices.GetDeviceAtXRNode(XRNode.LeftHand) : default;
 
-            if (isTriggerPressedRight && canShoot)
+            if (controllerDevice.isValid)
             {
-                Shoot(rightController); // Pass the right controller for feedback
-                canShoot = false; // Prevent continuous shooting while holding the trigger
-            }
-            else if (isTriggerPressedLeft && canShoot)
-            {
-                Shoot(leftController); // Pass the left controller for feedback
-                canShoot = false; // Prevent continuous shooting while holding the trigger
-            }
+                bool isTriggerPressed = controllerDevice.TryGetFeatureValue(CommonUsages.triggerButton, out bool isPressed) && isPressed;
 
-            // Allow shooting again when trigger is released
-            if (!isTriggerPressedRight && !isTriggerPressedLeft)
-            {
-                canShoot = true;
+                if (isTriggerPressed && canShoot)
+                {
+                    Shoot(controllerDevice); // Trigger the shooting action for the holding controller
+                    canShoot = false; // Prevent continuous shooting while holding the trigger
+                }
+
+                // Allow shooting again when trigger is released
+                if (!isTriggerPressed)
+                {
+                    canShoot = true;
+                }
             }
         }
     }
