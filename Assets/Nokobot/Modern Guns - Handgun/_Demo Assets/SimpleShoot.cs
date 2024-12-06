@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using System.IO; // For file operations
+using System.Text; // For string building
+using System;
 
 [AddComponentMenu("Nokobot/Modern Guns/Simple Shoot")]
 public class SimpleShoot : MonoBehaviour
@@ -23,9 +26,16 @@ public class SimpleShoot : MonoBehaviour
     [Tooltip("Casing Ejection Speed")] [SerializeField] private float ejectPower = 150f;
     [Tooltip("Show Trajectory Line")] [SerializeField] private bool showLine = true;
 
+    [Header("Player")]
+    [SerializeField] private GameObject player;
+
     private LineRenderer lineRenderer;
+    private int totalShots = 0;
     private int robotsShot = 0;
     private int robotsTotal = 0;
+
+    private float sessionStartTime;
+    private string dataFilePath;
 
     void Start()
     {
@@ -34,6 +44,18 @@ public class SimpleShoot : MonoBehaviour
 
         if (gunAnimator == null)
             gunAnimator = GetComponentInChildren<Animator>();
+
+        if (sessionStartTime == null)
+            sessionStartTime = Time.time;
+
+        if (dataFilePath == null)
+            dataFilePath = Path.Combine(Application.persistentDataPath, "UserExperienceData.csv");
+        
+        if (!File.Exists(dataFilePath)) {
+            File.WriteAllText(dataFilePath, "SessionDuration,Points,Accuracy\n");
+        }
+
+        Debug.Log("Data file path: " + dataFilePath);
 
         // Set up the LineRenderer
         lineRenderer = gameObject.AddComponent<LineRenderer>();
@@ -44,7 +66,6 @@ public class SimpleShoot : MonoBehaviour
         lineRenderer.startColor = new Color(0.3f, 0.3f, 0.3f); // Darker gray color
         lineRenderer.endColor = new Color(0.3f, 0.3f, 0.3f); // Darker gray color
         lineRenderer.enabled = false;
-
         // Set up the Robot Counter Text
         UpdateRobotsTotal();
         if (robotCounterText != null)
@@ -90,6 +111,7 @@ public class SimpleShoot : MonoBehaviour
         GameObject bullet = Instantiate(bulletPrefab, barrelLocation.position, barrelLocation.rotation);
         Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
         bulletRb.AddForce(barrelLocation.forward * shotPower);
+        totalShots++;
 
         // Ignore collisions for the first 0.2 seconds
         Collider bulletCollider = bullet.GetComponent<Collider>();
@@ -114,9 +136,9 @@ public class SimpleShoot : MonoBehaviour
         GameObject tempCasing;
         tempCasing = Instantiate(casingPrefab, casingExitLocation.position, casingExitLocation.rotation) as GameObject;
         //Add force on casing to push it out
-        tempCasing.GetComponent<Rigidbody>().AddExplosionForce(Random.Range(ejectPower * 0.7f, ejectPower), (casingExitLocation.position - casingExitLocation.right * 0.3f - casingExitLocation.up * 0.6f), 1f);
+        tempCasing.GetComponent<Rigidbody>().AddExplosionForce(UnityEngine.Random.Range(ejectPower * 0.7f, ejectPower), (casingExitLocation.position - casingExitLocation.right * 0.3f - casingExitLocation.up * 0.6f), 1f);
         //Add torque to make casing spin in random direction
-        tempCasing.GetComponent<Rigidbody>().AddTorque(new Vector3(0, Random.Range(100f, 500f), Random.Range(100f, 1000f)), ForceMode.Impulse);
+        tempCasing.GetComponent<Rigidbody>().AddTorque(new Vector3(0, UnityEngine.Random.Range(100f, 500f), UnityEngine.Random.Range(100f, 1000f)), ForceMode.Impulse);
 
         //Destroy casing after X seconds
         Destroy(tempCasing, destroyTimer);
@@ -183,6 +205,12 @@ public class SimpleShoot : MonoBehaviour
     {
         robotsShot++;
         UpdateRobotCounterText();
+        if (robotsShot == robotsTotal)
+        {
+            player.transform.position = new Vector3(60, 17, (float)-0.44); // Move player to specific coordinates
+            player.transform.rotation = Quaternion.identity; // Reset player rotation
+            EndSessionAndSaveData(totalShots * 10, (float)robotsShot / totalShots);
+        }
     }
 
     // Update the total number of robots in the scene
@@ -190,5 +218,23 @@ public class SimpleShoot : MonoBehaviour
     {
         robotsTotal = GameObject.FindGameObjectsWithTag("Robot").Length;
         UpdateRobotCounterText();
+    }
+
+    public void EndSessionAndSaveData(float points, float accuracy)
+    {
+        float sessionDuration = Time.time - sessionStartTime;
+        sessionDuration = Mathf.Round(sessionDuration * 100f) / 100f; // Round to 2 decimal places
+
+        // Build a CSV row for the session
+        StringBuilder csvRow = new StringBuilder();
+        csvRow.AppendFormat("{0},{1},{2}\n", 
+                            sessionDuration, 
+                            points, 
+                            accuracy);
+
+        // Append the row to the CSV file
+        File.AppendAllText(dataFilePath, csvRow.ToString());
+
+        Debug.Log("User experience data saved to CSV: " + csvRow.ToString());
     }
 }
