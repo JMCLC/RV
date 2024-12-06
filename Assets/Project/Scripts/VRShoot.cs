@@ -9,8 +9,7 @@ public class VRShoot : MonoBehaviour
 
     private UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable;
     private bool isHeld = false;
-    private float lastShootTime = 0f; // Keeps track of when the last shot occurred
-    private float shootCooldown = 0.25f; // Minimum time between shots (in seconds)
+    private bool canShoot = true; // Flag to control shooting
 
     void Awake()
     {
@@ -35,6 +34,7 @@ public class VRShoot : MonoBehaviour
     void OnRelease(SelectExitEventArgs args)
     {
         isHeld = false;
+        canShoot = true; // Reset the shoot flag on release
     }
 
     void Update()
@@ -46,28 +46,29 @@ public class VRShoot : MonoBehaviour
             InputDevice leftController = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
 
             bool isTriggerPressed = false;
-            if (rightController.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggerPressed) && isTriggerPressed)
+            bool isTriggerPressedRight = rightController.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggerPressed) && isTriggerPressed;
+            bool isTriggerPressedLeft = leftController.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggerPressed) && isTriggerPressed;
+
+            if (isTriggerPressedRight && canShoot)
             {
-                AttemptShoot();
+                Shoot(rightController); // Pass the right controller for feedback
+                canShoot = false; // Prevent continuous shooting while holding the trigger
             }
-            else if (leftController.TryGetFeatureValue(CommonUsages.triggerButton, out isTriggerPressed) && isTriggerPressed)
+            else if (isTriggerPressedLeft && canShoot)
             {
-                AttemptShoot();
+                Shoot(leftController); // Pass the left controller for feedback
+                canShoot = false; // Prevent continuous shooting while holding the trigger
+            }
+
+            // Allow shooting again when trigger is released
+            if (!isTriggerPressedRight && !isTriggerPressedLeft)
+            {
+                canShoot = true;
             }
         }
     }
 
-    private void AttemptShoot()
-    {
-        // Add cooldown logic to prevent double shooting
-        if (Time.time - lastShootTime > shootCooldown)
-        {
-            Shoot();
-            lastShootTime = Time.time; // Update the last shot time
-        }
-    }
-
-    private void Shoot()
+    private void Shoot(InputDevice controller)
     {
         if (simpleShoot != null)
         {
@@ -75,6 +76,12 @@ public class VRShoot : MonoBehaviour
         }
 
         PlayGunshotSound();
+
+        // Trigger Haptic Feedback on the respective controller
+        if (controller.isValid)
+        {
+            SendHapticImpulse(controller);
+        }
     }
 
     private void PlayGunshotSound()
@@ -83,6 +90,20 @@ public class VRShoot : MonoBehaviour
         {
             // Play the sound allowing overlapping sounds
             audioSource.PlayOneShot(audioSource.clip);
+        }
+    }
+
+    private void SendHapticImpulse(InputDevice controller)
+    {
+        // Define haptic parameters with increased amplitude and duration for stronger feedback
+        float amplitude = 1.0f; // Increased intensity of the vibration (0.0 to 1.0)
+        float duration = 0.3f;  // Increased duration of the vibration in seconds
+
+        // Send haptic feedback using the InputDevice interface
+        if (controller.TryGetHapticCapabilities(out HapticCapabilities capabilities) && capabilities.supportsImpulse)
+        {
+            uint channel = 0; // Usually, channel 0 is used
+            controller.SendHapticImpulse(channel, amplitude, duration);
         }
     }
 }
