@@ -12,6 +12,8 @@ TagManager:
   - LeftHand
   - RightHand
   - Robot
+  - Target
+  - Conclusion
   layers:
   - Default
   - TransparentFX
@@ -20,7 +22,7 @@ TagManager:
   - Water
   - UI
   - DirectInteractionOnly
-  - 
+  - Ground Layer
   - 
   - 
   - 

@@ -5,6 +5,7 @@ using TMPro;
 using System.IO; // For file operations
 using System.Text; // For string building
 using System;
+using UnityEngine.SceneManagement;
 
 [AddComponentMenu("Nokobot/Modern Guns/Simple Shoot")]
 public class SimpleShoot : MonoBehaviour
@@ -13,7 +14,7 @@ public class SimpleShoot : MonoBehaviour
     public GameObject bulletPrefab;
     public GameObject casingPrefab;
     public GameObject muzzleFlashPrefab;
-    public TextMeshPro robotCounterText; // Reference to TextMeshPro for robot counter
+    public TextMeshPro targetCounterText; // Reference to TextMeshPro for target counter
 
     [Header("Location Refrences")]
     [SerializeField] private Animator gunAnimator;
@@ -31,8 +32,11 @@ public class SimpleShoot : MonoBehaviour
 
     private LineRenderer lineRenderer;
     private int totalShots = 0;
-    private int robotsShot = 0;
-    private int robotsTotal = 0;
+    private int targetsShot = 0;
+    private int targetsTotal = 0;
+    private int points = 0;
+    public int userId = 1;
+    private string locomotionType = null;
 
     private float sessionStartTime;
     private string dataFilePath;
@@ -50,9 +54,15 @@ public class SimpleShoot : MonoBehaviour
 
         if (dataFilePath == null)
             dataFilePath = Path.Combine(Application.persistentDataPath, "UserExperienceData.csv");
+
+        if (locomotionType == null)
+            locomotionType = SceneManager.GetActiveScene().name;
         
         if (!File.Exists(dataFilePath)) {
-            File.WriteAllText(dataFilePath, "SessionDuration,Points,Accuracy\n");
+            File.WriteAllText(dataFilePath, "ID;Locomotion;Points;Accuracy;SessionDuration\n");
+            this.userId = 1;
+        } else {
+            userId = GetLastUserIdFromCsv(dataFilePath) + 1;
         }
 
         Debug.Log("Data file path: " + dataFilePath);
@@ -66,12 +76,37 @@ public class SimpleShoot : MonoBehaviour
         lineRenderer.startColor = new Color(0.3f, 0.3f, 0.3f); // Darker gray color
         lineRenderer.endColor = new Color(0.3f, 0.3f, 0.3f); // Darker gray color
         lineRenderer.enabled = false;
-        // Set up the Robot Counter Text
-        UpdateRobotsTotal();
-        if (robotCounterText != null)
+        // Set up the target Counter Text
+        UpdateTargetsTotal();
+        if (targetCounterText != null)
         {
-            UpdateRobotCounterText();
+            UpdateTargetCounterText();
         }
+    }
+
+    private int GetLastUserIdFromCsv(string filePath){
+        try
+            {
+                string[] lines = File.ReadAllLines(filePath);
+
+                // Skip the header and get the last data row
+                if (lines.Length > 1)
+                {
+                    string lastLine = lines[lines.Length - 1];
+                    string[] columns = lastLine.Split(';'); // Split the row by ';'
+
+                    if (columns.Length > 0 && int.TryParse(columns[0], out int lastId))
+                    {
+                        return lastId; // Return the parsed ID
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("Error reading the CSV file: " + e.Message);
+            }
+
+            return 0; // Return 0 if no valid ID was found
     }
 
     public void StartShoot() {
@@ -192,32 +227,68 @@ public class SimpleShoot : MonoBehaviour
         lineRenderer.enabled = false;
     }
 
-    private void UpdateRobotCounterText()
+    private void UpdateTargetCounterText()
     {
-        if (robotCounterText != null)
+        if (targetCounterText != null)
         {
-            robotCounterText.text = $"Robots: {robotsShot}/{robotsTotal}";
+            targetCounterText.text = $"Targets: {targetsShot}/{targetsTotal}";
         }
     }
 
-    // Call this function whenever a robot is shot
-    public void IncrementRobotsShot()
+    public void IncrementTargetsShot(GameObject target, int points)
     {
-        robotsShot++;
-        UpdateRobotCounterText();
-        if (robotsShot == robotsTotal)
+        // Check if the target has already been shot
+        TargetColisionHandler targetBehavior = target.GetComponent<TargetColisionHandler>();
+        if (targetBehavior != null && targetBehavior.isShot)
         {
-            player.transform.position = new Vector3(60, 17, (float)-0.44); // Move player to specific coordinates
+            Debug.LogWarning("Target has already been shot: " + target.name);
+            return; // Exit if the target is already processed
+        }
+
+        // Mark the target as shot
+        if (targetBehavior != null)
+        {
+            targetBehavior.OnHit();
+        }
+
+        // Recalculate the number of remaining active targets
+        int activeTargets = GameObject.FindGameObjectsWithTag("Target").Length;
+
+        // Increment targetsShot and update points
+        targetsShot++;
+        this.points += points;
+        UpdateTargetCounterText();
+
+        Debug.Log($"Target shot: {target.name}. Points: {points}. Remaining targets: {activeTargets - 1}");
+
+        // Check if all targets have been shot
+        if (targetsShot == targetsTotal || activeTargets - 1 == 0)
+        {
+            GameObject targetObject = GameObject.Find("ConclusionMessage");
+            Debug.Log(targetObject);
+            if (targetObject != null)
+            {
+                targetObject.SetActive(true);
+            }
+
+            // Move player to specific coordinates
+            player.transform.position = new Vector3(60, 18.2f, -3);
             player.transform.rotation = Quaternion.identity; // Reset player rotation
-            EndSessionAndSaveData(totalShots * 10, (float)robotsShot / totalShots);
+
+            // Save session data if not in practice mode
+            if (!this.locomotionType.Contains("Practice"))
+            {
+                EndSessionAndSaveData(this.points, ((float)targetsShot / totalShots) * 100);
+            }
         }
     }
 
-    // Update the total number of robots in the scene
-    private void UpdateRobotsTotal()
+
+    // Update the total number of targets in the scene
+    private void UpdateTargetsTotal()
     {
-        robotsTotal = GameObject.FindGameObjectsWithTag("Robot").Length;
-        UpdateRobotCounterText();
+        targetsTotal = GameObject.FindGameObjectsWithTag("Target").Length;
+        UpdateTargetCounterText();
     }
 
     public void EndSessionAndSaveData(float points, float accuracy)
@@ -227,14 +298,18 @@ public class SimpleShoot : MonoBehaviour
 
         // Build a CSV row for the session
         StringBuilder csvRow = new StringBuilder();
-        csvRow.AppendFormat("{0},{1},{2}\n", 
-                            sessionDuration, 
+        csvRow.AppendFormat("{0};{1};{2};{3};{4}\n", 
+                            userId,
+                            locomotionType,
                             points, 
-                            accuracy);
+                            accuracy, 
+                            sessionDuration);
 
         // Append the row to the CSV file
         File.AppendAllText(dataFilePath, csvRow.ToString());
-
+        if (locomotionType == "ArmSwing") {
+            this.userId++;
+        }
         Debug.Log("User experience data saved to CSV: " + csvRow.ToString());
     }
 }
