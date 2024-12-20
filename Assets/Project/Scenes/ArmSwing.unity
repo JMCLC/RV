@@ -14818,7 +14818,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1619505362, guid: 7e7f2840eb6a6294fb9d04582dbf8079, type: 3}
       propertyPath: showLine
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1619505362, guid: 7e7f2840eb6a6294fb9d04582dbf8079, type: 3}
       propertyPath: robotCounterText
@@ -51456,7 +51456,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1997532872876552699, guid: 5a3c4a7a3f3ddbd44a0b33b8af1c866d, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 11.792
+      value: 11.655
       objectReference: {fileID: 0}
     - target: {fileID: 1997532872876552699, guid: 5a3c4a7a3f3ddbd44a0b33b8af1c866d, type: 3}
       propertyPath: m_LocalRotation.w
@@ -55182,7 +55182,7 @@ GameObject:
   - component: {fileID: 2028355175}
   - component: {fileID: 2028355174}
   m_Layer: 0
-  m_Name: ConslusionMessage
+  m_Name: ConclusionMessage
   m_TagString: Conclusion
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -57778,15 +57778,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   leftHandNode: 4
   rightHandNode: 5
-  swingMultiplier: 4
-  detectionThreshold: 0.5
-  maxSpeed: 5
+  swingMultiplier: 3
+  detectionThreshold: 1
+  maxSpeed: 4
   gravity: -9.8
   groundLayer:
     serializedVersion: 2
     m_Bits: 128
-  leftHandHideController: {fileID: 0}
-  rightHandHideController: {fileID: 0}
+  leftHandHideController: {fileID: 91959773}
+  rightHandHideController: {fileID: 91959773}
 --- !u!1001 &7143170130726006807
 PrefabInstance:
   m_ObjectHideFlags: 0
