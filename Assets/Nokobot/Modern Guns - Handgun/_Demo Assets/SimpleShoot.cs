@@ -34,6 +34,8 @@ public class SimpleShoot : MonoBehaviour
     private int totalShots = 0;
     private int targetsShot = 0;
     private int targetsTotal = 0;
+    private int numberOfTargetsNeededPractice = 3;
+    private int numberOfTargetsNeededDemo = 6;
     private int points = 0;
     public int userId = 1;
     private string locomotionType = null;
@@ -231,7 +233,11 @@ public class SimpleShoot : MonoBehaviour
     {
         if (targetCounterText != null)
         {
-            targetCounterText.text = $"Targets: {targetsShot}/{targetsTotal}";
+            if (this.locomotionType.Contains("Practice")) {
+                targetCounterText.text = $"Targets: {targetsShot}/{numberOfTargetsNeededPractice}";
+            } else {
+                targetCounterText.text = $"Targets: {targetsShot}/{numberOfTargetsNeededDemo}";
+            }
         }
     }
 
@@ -260,24 +266,19 @@ public class SimpleShoot : MonoBehaviour
         UpdateTargetCounterText();
 
         Debug.Log($"Target shot: {target.name}. Points: {points}. Remaining targets: {activeTargets - 1}");
-
+        if (this.locomotionType == "ArmSwing" && (targetsShot == numberOfTargetsNeededDemo || activeTargets == 3 || targetsTotal - activeTargets == numberOfTargetsNeededDemo)) {
+            EndSessionAndSaveData(this.points, ((float)targetsShot / totalShots) * 100);
+        }
         // Check if all targets have been shot
-        if (targetsShot == targetsTotal || activeTargets - 1 == 0)
-        {
-            GameObject targetObject = GameObject.Find("ConclusionMessage");
-            Debug.Log(targetObject);
-            if (targetObject != null)
-            {
-                targetObject.SetActive(true);
+        if (this.locomotionType.Contains("Practice")) {
+            if (targetsShot == numberOfTargetsNeededPractice || targetsTotal - activeTargets == numberOfTargetsNeededPractice) {
+                player.transform.position = new Vector3(60, 18.2f, -3);
+                player.transform.rotation = Quaternion.identity; // Reset player rotation
             }
-
-            // Move player to specific coordinates
-            player.transform.position = new Vector3(60, 18.2f, -3);
-            player.transform.rotation = Quaternion.identity; // Reset player rotation
-
-            // Save session data if not in practice mode
-            if (!this.locomotionType.Contains("Practice"))
-            {
+        } else {
+            if (targetsShot == numberOfTargetsNeededDemo || targetsTotal - activeTargets == numberOfTargetsNeededDemo) {
+                player.transform.position = new Vector3(60, 18.2f, -3);
+                player.transform.rotation = Quaternion.identity; // Reset player rotation
                 EndSessionAndSaveData(this.points, ((float)targetsShot / totalShots) * 100);
             }
         }
@@ -307,9 +308,9 @@ public class SimpleShoot : MonoBehaviour
 
         // Append the row to the CSV file
         File.AppendAllText(dataFilePath, csvRow.ToString());
-        if (locomotionType == "ArmSwing") {
-            this.userId++;
-        }
+        // if (locomotionType == "ArmSwing") {
+        //     this.userId++;
+        // }
         Debug.Log("User experience data saved to CSV: " + csvRow.ToString());
     }
 }
